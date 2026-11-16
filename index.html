@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      window.addEventListener('unhandledrejection', function (event) {
+        var msg = event && event.reason && (event.reason.message || String(event.reason));
+        if (typeof msg === 'string' && msg.indexOf('WebSocket closed without opened') !== -1) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, true);
+      window.addEventListener('error', function (event) {
+        var msg = event && (event.message || (event.error && event.error.message));
+        if (typeof msg === 'string' && msg.indexOf('WebSocket closed without opened') !== -1) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, true);
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    <meta name="theme-color" content="#060d1f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="THPT 2027" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>ÔN THI THPT 2027 - Luyện Đề Môn Toán Chuẩn Cấu Trúc Mới</title>
+    <meta name="description" content="Hệ thống luyện đề thi Tốt nghiệp THPT Môn Toán 2027 chuyên nghiệp với cấu trúc 3 phần chuẩn GDPT 2018." />
+    <meta property="og:title" content="ÔN THI THPT 2027 - Luyện Đề Môn Toán Chuẩn Cấu Trúc Mới" />
+    <meta property="og:description" content="Hệ thống luyện đề thi Tốt nghiệp THPT Môn Toán 2027 chuyên nghiệp với cấu trúc 3 phần chuẩn GDPT 2018." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-[#060d1f] text-slate-100 antialiased selection:bg-amber-400 selection:text-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
