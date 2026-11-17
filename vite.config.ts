@@ -19,7 +19,7 @@ export default defineConfig(() => {
           'pwa-maskable-512x512.png',
         ],
         devOptions: {
-          enabled: false,
+          enabled: true,
           type: 'module',
         },
         manifest: {
@@ -57,6 +57,7 @@ export default defineConfig(() => {
         workbox: {
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot,webp,json}'],
+          globIgnores: ['**/assets/aistudio/**'],
           navigateFallback: 'index.html',
           cleanupOutdatedCaches: true,
           clientsClaim: true,

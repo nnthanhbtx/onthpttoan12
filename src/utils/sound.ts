@@ -1,4 +1,4 @@
-// Web Audio API sound generator for quiz interactions (100% offline synthesizer)
+// Web Audio API sound & haptic generator for quiz interactions (100% offline synthesizer)
 
 class SoundManager {
   private ctx: AudioContext | null = null;
@@ -24,18 +24,35 @@ class SoundManager {
     return this.ctx;
   }
 
-  // Pre-unlock audio on user gesture (iOS / Android compatibility)
-  public unlock() {
+  // Trigger subtle haptic vibration on supported mobile devices
+  public haptic(ms: number = 8) {
     try {
-      const ctx = this.getContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(ms);
       }
     } catch {}
   }
 
-  // Play subtle click / select sound
+  // Pre-unlock audio on user gesture (iOS X - 18 / Android compatibility)
+  public unlock() {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      // Play a 1-sample silent buffer to immediately unlock iOS Safari WebAudio pipeline
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch {}
+  }
+
+  // Play subtle click / select sound with haptic tap
   public playClick() {
+    this.haptic(6);
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -45,22 +62,23 @@ class SoundManager {
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(780, now + 0.04);
+      osc.frequency.setValueAtTime(560, now);
+      osc.frequency.exponentialRampToValueAtTime(820, now + 0.035);
 
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.05);
+      osc.stop(now + 0.04);
     } catch {}
   }
 
   // Play crisp celebratory chime when answer is correct
   public playCorrect() {
+    this.haptic(12);
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -93,6 +111,7 @@ class SoundManager {
 
   // Play distinct buzz tone when answer is incorrect
   public playIncorrect() {
+    this.haptic(20);
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -125,6 +144,7 @@ class SoundManager {
 
   // Play urgent pulsating alarm when anti-cheat violation occurs
   public playWarningAlert() {
+    this.haptic(40);
     try {
       const ctx = this.getContext();
       if (!ctx) return;
@@ -154,6 +174,7 @@ class SoundManager {
 
   // Play triumphant victory fanfare when exam is submitted
   public playCelebration() {
+    this.haptic(30);
     try {
       const ctx = this.getContext();
       if (!ctx) return;

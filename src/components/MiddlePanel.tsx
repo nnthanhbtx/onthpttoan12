@@ -60,6 +60,47 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
     }
   });
   const recognitionRef = useRef<any>(null);
+  const swipeTouchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleCardTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      swipeTouchStartRef.current = null;
+      return;
+    }
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.closest('.katex-display') ||
+        target.closest('input') ||
+        target.closest('button') ||
+        target.closest('select'))
+    ) {
+      swipeTouchStartRef.current = null;
+      return;
+    }
+    swipeTouchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleCardTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeTouchStartRef.current || e.changedTouches.length !== 1) return;
+    const dx = e.changedTouches[0].clientX - swipeTouchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - swipeTouchStartRef.current.y;
+    const dt = Date.now() - swipeTouchStartRef.current.time;
+    swipeTouchStartRef.current = null;
+
+    // Horizontal swipe: fast (< 600ms), significant horizontal distance (> 65px), and predominantly horizontal
+    if (dt < 600 && Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.85) {
+      if (dx < 0 && currentQuestionIndex < totalQuestions - 1) {
+        onNext();
+      } else if (dx > 0 && currentQuestionIndex > 0) {
+        onPrev();
+      }
+    }
+  };
 
   const adjustTextZoom = (delta: number) => {
     setTextZoom((prev) => {
@@ -233,7 +274,11 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
   const isPartIIILocked = Boolean(currentAnswer.partIIILocked);
 
   return (
-    <div className="w-full h-full flex flex-col justify-between bg-[#071026] p-3 sm:p-4 rounded-xl border border-[#1e345e] shadow-xl text-slate-100 min-h-0 sm:min-h-[600px] relative select-none">
+    <div
+      onTouchStart={handleCardTouchStart}
+      onTouchEnd={handleCardTouchEnd}
+      className="w-full h-full flex flex-col justify-between bg-[#071026] p-3 sm:p-4 rounded-xl border border-[#1e345e] shadow-xl text-slate-100 min-h-0 sm:min-h-[600px] relative select-none"
+    >
       {/* Non-intrusive voice feedback toast */}
       {voiceNotice && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-[#0f244a] border border-cyan-400 text-cyan-200 text-xs px-3 py-1.5 rounded-lg shadow-lg font-medium animate-in fade-in flex items-center gap-1.5 max-w-[90%] text-center">
@@ -318,22 +363,22 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
               </div>
             </div>
             
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              {/* Font size zoom controls for mobile & desktop */}
-              <div className="flex items-center bg-[#0f172a] border border-[#1e345e] rounded-full px-1.5 py-0.5 text-slate-300">
+            <div className="flex items-center gap-1.5">
+              {/* Font size zoom controls for mobile & desktop with generous touch targets */}
+              <div className="flex items-center bg-[#0f172a] border border-[#1e345e] rounded-full px-1 py-0.5 text-slate-300">
                 <button
                   type="button"
                   onClick={() => adjustTextZoom(-10)}
-                  className="p-1 hover:text-amber-300 active:scale-95 transition cursor-pointer"
+                  className="min-w-[32px] min-h-[30px] flex items-center justify-center hover:text-amber-300 active:scale-95 transition cursor-pointer"
                   title="Thu nhỏ cỡ chữ đề"
                   aria-label="Thu nhỏ cỡ chữ"
                 >
-                  <ZoomOut size={14} />
+                  <ZoomOut size={15} />
                 </button>
                 <button
                   type="button"
                   onClick={() => adjustTextZoom(0)}
-                  className="px-1 text-[10px] font-mono font-bold text-amber-300 hover:underline cursor-pointer"
+                  className="px-1.5 min-h-[30px] text-[11px] font-mono font-bold text-amber-300 hover:underline cursor-pointer"
                   title="Đặt lại cỡ chữ 100%"
                 >
                   {textZoom}%
@@ -341,24 +386,24 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => adjustTextZoom(10)}
-                  className="p-1 hover:text-amber-300 active:scale-95 transition cursor-pointer"
+                  className="min-w-[32px] min-h-[30px] flex items-center justify-center hover:text-amber-300 active:scale-95 transition cursor-pointer"
                   title="Phóng to cỡ chữ đề"
                   aria-label="Phóng to cỡ chữ"
                 >
-                  <ZoomIn size={14} />
+                  <ZoomIn size={15} />
                 </button>
               </div>
 
               <button
                 onClick={handleSpeak}
-                className={`p-1.5 rounded-full border transition-all cursor-pointer ${
+                className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full border transition-colors cursor-pointer ${
                   isSpeaking
                     ? 'bg-cyan-900 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
-                    : 'bg-[#0f172a] border-[#1e345e] text-slate-400 hover:text-cyan-300 hover:border-cyan-500/50'
+                    : 'bg-[#0f172a] border-[#1e345e] text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50'
                 }`}
                 title="Đọc câu hỏi"
               >
-                <Volume2 size={15} />
+                <Volume2 size={16} />
               </button>
             </div>
           </div>
@@ -466,12 +511,12 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                       type="button"
                       disabled={showResult || isPartILocked}
                       onClick={() => onSelectOptionPartI(question.id, opt.key)}
-                      className={`flex items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 min-h-[52px] rounded-xl border transition-all text-left ${btnClass}`}
+                      className={`flex items-center justify-between gap-2.5 sm:gap-3 p-3 sm:p-3.5 min-h-[56px] rounded-xl border text-left ${btnClass}`}
                     >
-                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Circle Badge with Letter */}
                         <span
-                          className={`w-7 h-7 shrink-0 flex items-center justify-center rounded-full font-extrabold text-xs shadow-sm font-sans ${
+                          className={`w-8 h-8 shrink-0 flex items-center justify-center rounded-full font-extrabold text-sm shadow-sm font-sans ${
                             showResult && isCorrectKey
                               ? 'bg-emerald-400 text-slate-950 ring-2 ring-white/60'
                               : 'bg-[#facc15] text-[#0f172a]'
@@ -579,16 +624,16 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0 mt-1 sm:mt-0">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto shrink-0 mt-1.5 sm:mt-0">
                       <button
                         type="button"
                         disabled={showResult || isStmtLocked}
                         onClick={() =>
                           onSelectOptionPartII(question.id, stmt.key, true)
                         }
-                        className={`px-3 py-1.5 sm:py-1 rounded text-xs font-bold transition-all border min-h-[36px] min-w-[68px] flex items-center justify-center gap-1 ${trueBtnClass}`}
+                        className={`px-3.5 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold border min-h-[46px] sm:min-h-[40px] min-w-[84px] flex items-center justify-center gap-1.5 ${trueBtnClass}`}
                       >
-                        {!showResult && currentVal === true && <Lock size={11} />}
+                        {!showResult && currentVal === true && <Lock size={12} />}
                         {showResult && stmt.correct === true && <span>✓</span>}
                         <span>Đúng</span>
                       </button>
@@ -598,16 +643,16 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                         onClick={() =>
                           onSelectOptionPartII(question.id, stmt.key, false)
                         }
-                        className={`px-3 py-1.5 sm:py-1 rounded text-xs font-bold transition-all border min-h-[36px] min-w-[68px] flex items-center justify-center gap-1 ${falseBtnClass}`}
+                        className={`px-3.5 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold border min-h-[46px] sm:min-h-[40px] min-w-[84px] flex items-center justify-center gap-1.5 ${falseBtnClass}`}
                       >
-                        {!showResult && currentVal === false && <Lock size={11} />}
+                        {!showResult && currentVal === false && <Lock size={12} />}
                         {showResult && stmt.correct === false && <span>✓</span>}
                         <span>Sai</span>
                       </button>
 
                       {showResult && (
                         <span
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md shadow-xs ${
+                          className={`col-span-2 sm:col-span-1 text-center text-[11px] font-bold px-2.5 py-1 rounded-md shadow-xs ${
                             stmt.correct
                               ? 'bg-emerald-950 text-emerald-300 border border-emerald-500'
                               : 'bg-rose-950 text-rose-300 border border-rose-500'
@@ -626,13 +671,17 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
           {/* PART III: Short Answer Input Box — Single First-Choice Lock */}
           {question.section === 'PART_III' && (
             <div className="flex flex-col items-center justify-center p-3 sm:p-3.5 bg-[#0b1b3b] rounded-lg border border-[#1e3a6e] gap-2.5">
-              <label className="text-xs sm:text-sm font-semibold text-amber-300">
+              <label className="text-xs sm:text-sm font-semibold text-amber-300 text-center">
                 Nhập đáp số (Nhấn Chốt đáp số hoặc Enter để khóa lựa chọn lần đầu):
               </label>
               <div className="w-full max-w-md flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <input
                   type="text"
                   inputMode="decimal"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   disabled={isSubmitted || isPartIIILocked}
                   readOnly={isSubmitted || isPartIIILocked}
                   value={currentAnswer.partIII || ''}
@@ -657,7 +706,7 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                     type="button"
                     disabled={isPartIIILocked || !(currentAnswer.partIII || '').trim()}
                     onClick={() => onLockAnswerPartIII && onLockAnswerPartIII(question.id)}
-                    className={`px-4 py-2.5 rounded-lg font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border ${
+                    className={`px-4 py-2.5 min-h-[44px] rounded-lg font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border ${
                       isPartIIILocked
                         ? 'bg-amber-950/60 border-amber-400/70 text-amber-300 cursor-default'
                         : (currentAnswer.partIII || '').trim()
@@ -670,6 +719,80 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Built-in 1-Tap Touch Math & Number Keypad for iPhone X-18 & Mobile (Zero keyboard lag) */}
+              {!isSubmitted && !isPartIIILocked && (
+                <div className="w-full max-w-md flex flex-col gap-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+                    <span>📱 Bàn phím toán 1 chạm (Hỗ trợ iPhone X – 18):</span>
+                    <span className="text-amber-300/90 font-semibold">Chạm nhanh không cần mở phím ảo</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => (
+                      <button
+                        key={digit}
+                        type="button"
+                        onClick={() => {
+                          const cur = currentAnswer.partIII || '';
+                          onChangeAnswerPartIII(question.id, cur + digit);
+                        }}
+                        className="min-h-[42px] rounded-lg bg-[#102348] hover:bg-[#193569] border border-[#2a4a82] text-white font-mono font-extrabold text-sm sm:text-base flex items-center justify-center shadow-xs cursor-pointer"
+                      >
+                        {digit}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = (currentAnswer.partIII || '').trim();
+                        const next = cur.startsWith('-') ? cur.slice(1) : `-${cur}`;
+                        onChangeAnswerPartIII(question.id, next);
+                      }}
+                      className="min-h-[42px] rounded-lg bg-[#0f244a] hover:bg-[#183566] border border-cyan-500/50 text-amber-300 font-mono font-extrabold text-xs sm:text-sm flex items-center justify-center cursor-pointer"
+                      title="Thêm hoặc bỏ dấu âm (-)"
+                    >
+                      ±(-)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = currentAnswer.partIII || '';
+                        if (!cur.includes('.') && !cur.includes(',')) {
+                          onChangeAnswerPartIII(question.id, (cur || '0') + '.');
+                        }
+                      }}
+                      className="min-h-[42px] rounded-lg bg-[#0f244a] hover:bg-[#183566] border border-cyan-500/50 text-amber-300 font-mono font-extrabold text-base flex items-center justify-center cursor-pointer"
+                      title="Dấu chấm thập phân (.)"
+                    >
+                      .
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = currentAnswer.partIII || '';
+                        if (!cur.includes('/')) {
+                          onChangeAnswerPartIII(question.id, cur + '/');
+                        }
+                      }}
+                      className="min-h-[42px] rounded-lg bg-[#0f244a] hover:bg-[#183566] border border-cyan-500/50 text-amber-300 font-mono font-extrabold text-sm flex items-center justify-center cursor-pointer"
+                      title="Dấu phân số (/)"
+                    >
+                      /
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = currentAnswer.partIII || '';
+                        onChangeAnswerPartIII(question.id, cur.slice(0, -1));
+                      }}
+                      className="min-h-[42px] rounded-lg bg-rose-950/70 hover:bg-rose-900/90 border border-rose-500/50 text-rose-200 font-bold text-xs flex items-center justify-center cursor-pointer"
+                      title="Xóa 1 ký tự"
+                    >
+                      ⌫
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {isPartIIILocked && !isSubmitted && !isTeacherMode && (
                 <div className="text-[11px] text-amber-300 font-semibold flex items-center gap-1">
@@ -711,22 +834,29 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
           )}
 
           {/* Navigation Buttons (Bottom inside MiddlePanel) */}
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 mt-1">
-            <button
-              onClick={onPrev}
-              disabled={currentQuestionIndex === 0}
-              className="w-full py-2.5 sm:py-3 px-3 rounded-lg font-bold text-white text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-[#64748b] via-[#475569] to-[#334155] hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md border border-slate-400/30 cursor-pointer min-h-[44px]"
-            >
-              CÂU TRƯỚC
-            </button>
+          <div className="flex flex-col gap-1.5 mt-1">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+              <button
+                onClick={onPrev}
+                disabled={currentQuestionIndex === 0}
+                className="w-full py-3 px-3 rounded-xl font-extrabold text-white text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-[#64748b] via-[#475569] to-[#334155] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed shadow-md border border-slate-400/30 cursor-pointer min-h-[48px] flex items-center justify-center gap-1.5"
+              >
+                <span>◀</span>
+                <span>CÂU TRƯỚC</span>
+              </button>
 
-            <button
-              onClick={onNext}
-              disabled={currentQuestionIndex === totalQuestions - 1}
-              className="w-full py-2.5 sm:py-3 px-3 rounded-lg font-bold text-[#0f172a] text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-[#fde047] via-[#facc15] to-[#eab308] hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md border border-amber-300/80 cursor-pointer min-h-[44px]"
-            >
-              CÂU TIẾP
-            </button>
+              <button
+                onClick={onNext}
+                disabled={currentQuestionIndex === totalQuestions - 1}
+                className="w-full py-3 px-3 rounded-xl font-extrabold text-[#0f172a] text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-[#fde047] via-[#facc15] to-[#eab308] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed shadow-md border border-amber-300/80 cursor-pointer min-h-[48px] flex items-center justify-center gap-1.5"
+              >
+                <span>CÂU TIẾP</span>
+                <span>▶</span>
+              </button>
+            </div>
+            <div className="text-center text-[11px] text-slate-400 lg:hidden">
+              ⇄ Mẹo: Vuốt ngang trái / phải trên câu hỏi để chuyển câu nhanh
+            </div>
           </div>
         </div>
       </div>

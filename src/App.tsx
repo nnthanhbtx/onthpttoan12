@@ -31,7 +31,7 @@ import { generateSimilarExamAsync } from './lib/similarExamGenerator';
 import { soundFx } from './utils/sound';
 import { fireSubmissionConfetti } from './utils/confetti';
 import { cleanStrayArtifacts, normalizeVectors } from './components/MathText';
-import { OfflineIndicator } from './components/PWAWidgets';
+import { OfflineIndicator, MobileTopInstallBadge } from './components/PWAWidgets';
 
 export function sanitizeQuestion(q: Question): Question {
   const sanitizeText = (txt: string) => normalizeVectors(cleanStrayArtifacts(txt || ''));
@@ -508,6 +508,7 @@ export default function App() {
   });
 
   const appContainerRef = useRef<HTMLDivElement>(null);
+  const mobileQuestionStripRef = useRef<HTMLDivElement>(null);
   const currentQuestion = questions[currentQuestionIndex] || questions[0];
 
   const currentExam = examHistory.find((e) => e.id === currentExamId) || examHistory[0] || {
@@ -569,20 +570,41 @@ export default function App() {
     } catch (e) {}
   }, [playerInfo]);
 
-  // Auto unlock Web Audio on first mobile touch/click
+  // Auto unlock Web Audio & iOS Safari :active touch states on first mobile touch/pointerdown
   useEffect(() => {
+    const noop = () => {};
+    document.body.addEventListener('touchstart', noop, { passive: true });
     const unlockAudio = () => {
       soundFx.unlock();
-      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('pointerdown', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
     };
-    window.addEventListener('click', unlockAudio, { passive: true });
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
     window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('click', unlockAudio, { passive: true });
     return () => {
-      window.removeEventListener('click', unlockAudio);
+      document.body.removeEventListener('touchstart', noop);
+      window.removeEventListener('pointerdown', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
     };
   }, []);
+
+  // Auto-center active question pill in mobile horizontal strip & scroll to top on mobile
+  useEffect(() => {
+    if (mobileQuestionStripRef.current) {
+      const activeBtn = mobileQuestionStripRef.current.querySelector(
+        `[data-q-index="${currentQuestionIndex}"]`
+      ) as HTMLElement | null;
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentQuestionIndex]);
 
   // Global shortcut for teacher / owner authentication (Ctrl+Shift+O or Alt+G)
   useEffect(() => {
@@ -625,6 +647,8 @@ export default function App() {
       soundFx.playWarningAlert();
     };
 
+    let blurTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         triggerViolation(
@@ -635,10 +659,21 @@ export default function App() {
     };
 
     const handleWindowBlur = () => {
-      triggerViolation(
-        'WINDOW_BLUR',
-        'Mất tiêu điểm cửa sổ làm bài (mở ứng dụng khác, chia đôi màn hình hoặc nhấp ra ngoài)'
-      );
+      // On iOS Safari (iPhone X - iPhone 18), tapping an input/select or dismissing the virtual keyboard
+      // can momentarily fire window blur without leaving the app.
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'SELECT' || activeTag === 'TEXTAREA') {
+        return;
+      }
+      if (blurTimer) clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        if (document.hidden || !document.hasFocus()) {
+          triggerViolation(
+            'WINDOW_BLUR',
+            'Mất tiêu điểm cửa sổ làm bài (mở ứng dụng khác, chia đôi màn hình hoặc nhấp ra ngoài)'
+          );
+        }
+      }, 300);
     };
 
     const handleFullscreenChange = () => {
@@ -664,6 +699,10 @@ export default function App() {
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
+      // On touch devices (iPhone X - 18, iPad, Android), long-pressing while scrolling or viewing an SVG
+      // diagram can fire contextmenu. Suppress the menu without penalizing the student.
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (isTouchDevice) return;
       triggerViolation(
         'DEVTOOLS_SHORTCUT',
         'Mở menu chuột phải trên màn hình bài thi'
@@ -697,6 +736,7 @@ export default function App() {
     window.addEventListener('keydown', handleRestrictedKeyDown);
 
     return () => {
+      if (blurTimer) clearTimeout(blurTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -1322,23 +1362,23 @@ export default function App() {
       </div>
 
       {/* MOBILE STICKY TOP BAR & VIEW SWITCHER (ONLY ON MOBILE < LG) */}
-      <div className="w-full max-w-7xl lg:hidden flex flex-col gap-2 mb-2 sticky top-0 z-30 bg-[#060d1f]/95 backdrop-blur pt-1 pb-1 border-b border-[#1e345e]/80">
+      <div className="w-full max-w-7xl lg:hidden flex flex-col gap-1.5 mb-2 sticky top-0 z-30 bg-[#060d1f]/95 backdrop-blur-md pt-1 pb-1.5 border-b border-[#1e345e]/80">
         {/* Top Info Strip */}
-        <div className="flex items-center justify-between bg-[#071026] p-2 rounded-xl border border-[#1e345e]">
+        <div className="flex items-center justify-between bg-[#071026] px-2.5 py-1.5 rounded-xl border border-[#1e345e] gap-1.5">
           {/* App Badge & Owner Status */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-amber-400 font-extrabold text-sm sm:text-base">🎓</span>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-amber-400 font-extrabold text-sm shrink-0">🎓</span>
             <button
               onClick={() => setIsOwnerAuthModalOpen(true)}
-              className="text-xs font-extrabold text-[#facc15] uppercase tracking-wider truncate max-w-[150px] sm:max-w-none text-left cursor-pointer hover:underline"
+              className="text-xs font-extrabold text-[#facc15] uppercase tracking-wider truncate text-left cursor-pointer hover:underline py-1"
               title="Ôn Thi THPT 2027"
             >
-              ÔN THI THPT 2027
+              THPT 2027
             </button>
             {isOwnerAuthenticated && (
               <button
                 onClick={() => setIsOwnerAuthModalOpen(true)}
-                className="p-1 rounded-md text-[10px] font-bold border transition cursor-pointer flex items-center gap-0.5 bg-amber-400/20 text-amber-300 border-amber-400/60 shadow-sm"
+                className="p-1 rounded-md text-[10px] font-bold border transition cursor-pointer flex items-center gap-0.5 bg-amber-400/20 text-amber-300 border-amber-400/60 shadow-sm shrink-0"
                 title="Chủ tài khoản (Đã đăng nhập)"
               >
                 <span>👑</span>
@@ -1346,76 +1386,113 @@ export default function App() {
             )}
           </div>
 
-          {/* Quick Question Selector Dropdown & Exam Bank Pill */}
-          <div className="flex items-center gap-1.5">
+          {/* Quick Actions: Install App, Exam Bank, Start/Submit & Timer */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <MobileTopInstallBadge />
             <button
               onClick={() => setIsExamBankOpen(true)}
-              className="bg-[#08122c] border border-amber-400 text-[#facc15] font-bold text-xs rounded-lg px-2 py-1 flex items-center gap-1 hover:bg-[#12244a] cursor-pointer"
-              title="Mở Ngân Hàng Đề Thi"
+              className="bg-[#08122c] border border-amber-400 text-[#facc15] font-bold text-xs rounded-lg px-2.5 min-h-[34px] flex items-center gap-1 hover:bg-[#12244a] cursor-pointer"
+              title="Mở Ngân Hàng Đề Thi (15 Đề)"
             >
               <span>📚</span>
-              <span className="truncate max-w-[80px] sm:max-w-[120px]">
+              <span className="truncate max-w-[70px] sm:max-w-[120px]">
                 {currentExamTitle}
               </span>
             </button>
 
-            <select
-              value={currentQuestion ? currentQuestion.id : 1}
-              onChange={(e) => handleSelectQuestion(Number(e.target.value))}
-              className="bg-[#08122c] border border-amber-400/80 text-amber-300 font-bold text-xs rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
-            >
-              {questions.map((q) => {
-                const answered = isQuestionAnswered(q.id);
-                return (
-                  <option key={q.id} value={q.id} className="bg-[#0f172a] text-slate-100">
-                    Câu {q.id} {answered ? '✓' : ''}
-                  </option>
-                );
-              })}
-            </select>
-
-            {/* Timer Badge - ONLY visible after student clicks Start */}
-            {isStarted && (
-              <div className="px-2.5 py-1 rounded-lg bg-[#030712] border border-amber-400/80 text-amber-300 font-mono font-bold text-xs tracking-wider">
-                ⏱️ {formattedTime}
-              </div>
+            {!isStarted ? (
+              <button
+                onClick={() => setIsStartModalOpen(true)}
+                className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-700 border border-emerald-300 text-white font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
+              >
+                <span>▶</span>
+                <span>Thi</span>
+              </button>
+            ) : (
+              <>
+                <div className="px-2 min-h-[34px] flex items-center rounded-lg bg-[#030712] border border-amber-400/80 text-amber-300 font-mono font-bold text-xs tracking-wider">
+                  ⏱️ {formattedTime}
+                </div>
+                {!isSubmitted && (
+                  <button
+                    onClick={calculateAndSubmitScore}
+                    className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-orange-500 to-orange-700 border border-orange-300 text-white font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
+                  >
+                    <span>Nộp</span>
+                  </button>
+                )}
+              </>
             )}
 
             {/* Mobile Anti-Cheat Alert Pill */}
-            {isStarted && !isSubmitted && !isTeacherMode && (
+            {isStarted && !isSubmitted && !isTeacherMode && violationCount > 0 && (
               <button
                 onClick={() => setIsViolationModalOpen(true)}
-                className={`px-2 py-1 rounded-lg border text-[11px] font-black flex items-center gap-1 cursor-pointer transition-all ${
-                  violationCount === 0
-                    ? 'bg-emerald-950/80 border-emerald-500/70 text-emerald-300'
-                    : 'bg-rose-950 border-rose-500 text-rose-300 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.4)]'
-                }`}
-                title={violationCount === 0 ? 'Hệ thống giám sát đang bật' : `Cảnh báo: Đã vi phạm ${violationCount} lần!`}
+                className="px-2 min-h-[34px] rounded-lg border text-[11px] font-black flex items-center gap-1 cursor-pointer bg-rose-950 border-rose-500 text-rose-300 animate-pulse"
+                title={`Cảnh báo: Đã vi phạm ${violationCount} lần!`}
               >
-                <span>{violationCount === 0 ? '🛡️' : '🚨'}</span>
-                <span>{violationCount === 0 ? '0 VP' : `${violationCount} VP`}</span>
+                <span>🚨</span>
+                <span>{violationCount}</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Mobile Tab Switcher */}
+        {/* 1-Tap Horizontal 22-Question Scroller Strip (Instant Thumb Selection on iPhone X - 18) */}
+        <div
+          ref={mobileQuestionStripRef}
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5"
+        >
+          {questions.map((q, idx) => {
+            const isSelected = idx === currentQuestionIndex && mobileTab === 'question';
+            const answered = isQuestionAnswered(q.id);
+            return (
+              <button
+                key={q.id}
+                type="button"
+                data-q-index={idx}
+                onClick={() => {
+                  soundFx.playClick();
+                  handleSelectQuestion(q.id);
+                }}
+                className={`shrink-0 min-w-[38px] min-h-[34px] px-2 rounded-lg font-mono font-extrabold text-xs border flex items-center justify-center gap-0.5 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#facc15] text-[#0f172a] border-amber-300 shadow-[0_0_8px_rgba(250,204,21,0.5)]'
+                    : answered
+                    ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/70'
+                    : 'bg-[#08122c] text-slate-300 border-[#1e345e]'
+                }`}
+              >
+                <span>{q.id}</span>
+                {answered && !isSelected && <span className="text-[9px] text-emerald-400">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Mobile Tab Switcher with Generous Touch Hitboxes */}
         <div className="grid grid-cols-3 gap-1 bg-[#040a1c] p-1 rounded-xl border border-[#1e345e]">
           <button
-            onClick={() => setMobileTab('question')}
-            className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+            onClick={() => {
+              soundFx.playClick();
+              setMobileTab('question');
+            }}
+            className={`min-h-[38px] px-2 rounded-lg text-xs font-extrabold text-center cursor-pointer flex items-center justify-center gap-1 ${
               mobileTab === 'question'
                 ? 'bg-[#facc15] text-[#0f172a] shadow'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <span>📝</span>
-            <span>CÂU HỎI</span>
+            <span>CÂU HỎI ({currentQuestionIndex + 1}/{questions.length})</span>
           </button>
 
           <button
-            onClick={() => setMobileTab('controls')}
-            className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+            onClick={() => {
+              soundFx.playClick();
+              setMobileTab('controls');
+            }}
+            className={`min-h-[38px] px-2 rounded-lg text-xs font-extrabold text-center cursor-pointer flex items-center justify-center gap-1 ${
               mobileTab === 'controls'
                 ? 'bg-[#facc15] text-[#0f172a] shadow'
                 : 'text-slate-300 hover:text-white'
@@ -1426,15 +1503,18 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setMobileTab('grid')}
-            className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1 ${
+            onClick={() => {
+              soundFx.playClick();
+              setMobileTab('grid');
+            }}
+            className={`min-h-[38px] px-2 rounded-lg text-xs font-extrabold text-center cursor-pointer flex items-center justify-center gap-1 ${
               mobileTab === 'grid'
                 ? 'bg-[#facc15] text-[#0f172a] shadow'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <span>📊</span>
-            <span>DANH SÁCH</span>
+            <span>BẢNG CÂU</span>
           </button>
         </div>
       </div>

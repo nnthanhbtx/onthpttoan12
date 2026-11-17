@@ -16,12 +16,39 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     min-height: 100vh;
+    min-height: -webkit-fill-available;
     min-height: 100dvh;
     background-color: #060d1f;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Eliminate 300ms tap delay and deliver instant 0ms active tactile feedback on iPhone X - iPhone 18 */
+  button, a, select, input, label, [role="button"] {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  button:not(:disabled) {
+    transition: transform 70ms cubic-bezier(0.16, 1, 0.3, 1), background-color 90ms ease, border-color 90ms ease, opacity 90ms ease;
+    will-change: transform;
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.965);
+  }
+
+  /* Prevent iOS Safari auto-zoom when focusing inputs/selects on iPhone X through iPhone 18 */
+  @media screen and (max-width: 1024px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 }
 
@@ -101,22 +128,23 @@
   background: rgba(250, 204, 21, 0.8);
 }
 
-/* Utility to hide scrollbars smoothly */
+/* Utility to hide scrollbars smoothly with iOS momentum scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Safe areas for all mobile phones (iOS notch & Android gesture bars) */
+/* Safe areas for all mobile phones (iPhone X-14 Notch, iPhone 14 Pro-18 Pro Max Dynamic Island & Home Indicator) */
 .pb-safe {
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom, 0.65rem));
 }
 
 .pt-safe {
-  padding-top: max(0.5rem, env(safe-area-inset-top, 0.5rem));
+  padding-top: max(0.4rem, env(safe-area-inset-top, 0.4rem));
 }
 
 .pl-safe {

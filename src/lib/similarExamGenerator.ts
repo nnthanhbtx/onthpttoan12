@@ -25,28 +25,30 @@ export async function generateSimilarExamAsync(
   onProgress?: (msg: string) => void
 ): Promise<{ title: string; questions: Question[]; isAiGenerated: boolean }> {
   try {
-    if (onProgress) onProgress('Đang gửi dữ liệu phân tích ma trận đề gốc...');
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      if (onProgress) onProgress('Đang gửi dữ liệu phân tích ma trận đề gốc...');
 
-    // Attempt AI Generation via Server API
-    const response = await fetch('/api/generate-similar-exam', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        baseTitle,
-        questions: baseQuestions,
-        newExamIndex,
-      }),
-    });
+      // Attempt AI Generation via Server API when online
+      const response = await fetch('/api/generate-similar-exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseTitle,
+          questions: baseQuestions,
+          newExamIndex,
+        }),
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.questions && Array.isArray(data.questions) && data.questions.length >= 10) {
-        if (onProgress) onProgress('Hoàn tất biên soạn đề thi tương tự bằng AI!');
-        return {
-          title: data.title || `Đề ${newExamIndex} (Tương tự ${baseTitle})`,
-          questions: data.questions,
-          isAiGenerated: true,
-        };
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.questions && Array.isArray(data.questions) && data.questions.length >= 10) {
+          if (onProgress) onProgress('Hoàn tất biên soạn đề thi tương tự bằng AI!');
+          return {
+            title: data.title || `Đề ${newExamIndex} (Tương tự ${baseTitle})`,
+            questions: data.questions,
+            isAiGenerated: true,
+          };
+        }
       }
     }
   } catch (error) {

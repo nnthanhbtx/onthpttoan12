@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, ZoomOut, RotateCcw, Maximize2, X } from 'lucide-react';
 import { DiagramPrism } from './DiagramPrism';
 import { DiagramTriangleSecret } from './DiagramTriangleSecret';
@@ -182,6 +182,9 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
   const [imageError, setImageError] = useState(false);
   const [scale, setScale] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartScaleRef = useRef<number>(1);
+  const lastTapTimeRef = useRef<number>(0);
 
   // Determine if valid image source exists
   let validSrc: string | null = null;
@@ -209,6 +212,49 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
   const handleZoomOut = () => setScale((s) => Math.max(0.75, Number((s - 0.25).toFixed(2))));
   const handleZoomIn = () => setScale((s) => Math.min(2.5, Number((s + 0.25).toFixed(2))));
   const handleResetZoom = () => setScale(1);
+
+  const getTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return null;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const handleDiagramTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.stopPropagation();
+      const dist = getTouchDistance(e.touches);
+      if (dist && dist > 10) {
+        pinchStartDistRef.current = dist;
+        pinchStartScaleRef.current = scale;
+      }
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < 280) {
+        // Double tap toggles between 100% and 150% zoom
+        setScale((prev) => (prev > 1.1 ? 1 : 1.5));
+        lastTapTimeRef.current = 0;
+      } else {
+        lastTapTimeRef.current = now;
+      }
+    }
+  };
+
+  const handleDiagramTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current) {
+      e.stopPropagation();
+      const dist = getTouchDistance(e.touches);
+      if (dist) {
+        const ratio = dist / pinchStartDistRef.current;
+        const nextScale = Math.min(2.5, Math.max(0.75, Number((pinchStartScaleRef.current * ratio).toFixed(2))));
+        setScale(nextScale);
+      }
+    }
+  };
+
+  const handleDiagramTouchEnd = () => {
+    pinchStartDistRef.current = null;
+  };
 
   const renderDiagramContent = () => {
     if (validSrc && !imageError) {
@@ -549,22 +595,25 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
   return (
     <>
       <div className="w-full bg-[#f8fafc] p-2 sm:p-3 rounded-xl border border-slate-300 shadow relative flex flex-col items-center">
-        {/* Top-right compact zoom controls for mobile & desktop */}
-        <div className="w-full flex items-center justify-end gap-1 mb-1">
-          <div className="inline-flex items-center gap-0.5 bg-slate-200/90 border border-slate-300 rounded-lg px-1 py-0.5 text-slate-700 shadow-xs">
+        {/* Top-right touch-friendly zoom controls for mobile & desktop */}
+        <div className="w-full flex items-center justify-between gap-1.5 mb-1.5">
+          <span className="text-[11px] font-medium text-slate-500 pl-1 truncate">
+            💡 Chạm đúp hoặc dùng 2 ngón tay để phóng to hình
+          </span>
+          <div className="inline-flex items-center gap-1 bg-slate-200/95 border border-slate-300 rounded-xl p-0.5 text-slate-800 shadow-xs shrink-0">
             <button
               type="button"
               onClick={handleZoomOut}
-              className="p-1 rounded hover:bg-slate-300 active:scale-95 transition cursor-pointer"
+              className="min-w-[34px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-slate-300 active:bg-slate-400 transition cursor-pointer"
               title="Thu nhỏ hình vẽ"
               aria-label="Thu nhỏ hình vẽ"
             >
-              <ZoomOut size={13} />
+              <ZoomOut size={15} />
             </button>
             <button
               type="button"
               onClick={handleResetZoom}
-              className="px-1.5 text-[11px] font-mono font-bold text-slate-800 hover:bg-slate-300 rounded cursor-pointer"
+              className="px-2 min-h-[32px] text-xs font-mono font-bold text-slate-900 hover:bg-slate-300 rounded-lg cursor-pointer"
               title="Đặt lại kích thước 100%"
             >
               {Math.round(scale * 100)}%
@@ -572,28 +621,34 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
             <button
               type="button"
               onClick={handleZoomIn}
-              className="p-1 rounded hover:bg-slate-300 active:scale-95 transition cursor-pointer"
+              className="min-w-[34px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-slate-300 active:bg-slate-400 transition cursor-pointer"
               title="Phóng to hình vẽ"
               aria-label="Phóng to hình vẽ"
             >
-              <ZoomIn size={13} />
+              <ZoomIn size={15} />
             </button>
             <button
               type="button"
               onClick={() => setIsFullscreen(true)}
-              className="p-1 rounded hover:bg-slate-300 active:scale-95 transition cursor-pointer ml-0.5 border-l border-slate-300 pl-1.5"
+              className="px-2 min-h-[32px] flex items-center gap-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 font-bold text-[11px] transition cursor-pointer ml-0.5"
               title="Xem hình phóng to toàn màn hình"
               aria-label="Xem hình phóng to toàn màn hình"
             >
               <Maximize2 size={13} />
+              <span className="hidden xs:inline sm:inline">Toàn MH</span>
             </button>
           </div>
         </div>
 
-        {/* Scrollable & pinch-zoomable diagram viewport */}
-        <div className="w-full overflow-auto flex justify-center items-center py-1 touch-pan-x touch-pan-y">
+        {/* Scrollable, double-tappable & pinch-zoomable diagram viewport */}
+        <div
+          className="w-full overflow-auto flex justify-center items-center py-1 touch-pan-x touch-pan-y"
+          onTouchStart={handleDiagramTouchStart}
+          onTouchMove={handleDiagramTouchMove}
+          onTouchEnd={handleDiagramTouchEnd}
+        >
           <div
-            className="w-full flex justify-center items-center transition-transform duration-150 origin-top"
+            className="w-full flex justify-center items-center transition-transform duration-100 origin-top"
             style={{
               transform: scale !== 1 ? `scale(${scale})` : undefined,
               marginBottom: scale > 1 ? `${(scale - 1) * 140}px` : undefined,
@@ -607,49 +662,49 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
       {/* Fullscreen Zoom Modal for mobile inspection */}
       {isFullscreen && (
         <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-between p-3 sm:p-6 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex flex-col items-center justify-between p-3 sm:p-6 pt-safe pb-safe animate-in fade-in"
           onClick={() => setIsFullscreen(false)}
         >
           <div
             className="w-full max-w-2xl flex items-center justify-between bg-[#0b1532] border border-[#1e345e] rounded-xl px-3.5 py-2.5 text-slate-100 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="text-xs sm:text-sm font-bold text-amber-300">
-              🔍 Xem chi tiết hình vẽ (Hỗ trợ chạm 2 ngón để phóng to)
+            <span className="text-xs sm:text-sm font-bold text-amber-300 truncate mr-2">
+              🔍 Xem hình chi tiết (Chạm 2 ngón để phóng to)
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={handleZoomOut}
-                className="p-1.5 rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-slate-200 cursor-pointer"
+                className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-slate-200 cursor-pointer"
                 title="Thu nhỏ"
               >
-                <ZoomOut size={16} />
+                <ZoomOut size={18} />
               </button>
               <button
                 type="button"
                 onClick={handleResetZoom}
-                className="px-2 py-1 rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-amber-300 text-xs font-mono font-bold cursor-pointer flex items-center gap-1"
+                className="px-2.5 min-h-[38px] rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-amber-300 text-xs font-mono font-bold cursor-pointer flex items-center gap-1"
                 title="100%"
               >
-                <RotateCcw size={13} />
+                <RotateCcw size={14} />
                 <span>{Math.round(scale * 100)}%</span>
               </button>
               <button
                 type="button"
                 onClick={handleZoomIn}
-                className="p-1.5 rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-slate-200 cursor-pointer"
+                className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-lg bg-[#142654] hover:bg-[#1e3a7a] text-slate-200 cursor-pointer"
                 title="Phóng to"
               >
-                <ZoomIn size={16} />
+                <ZoomIn size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => setIsFullscreen(false)}
-                className="p-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white cursor-pointer ml-1"
+                className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-lg bg-rose-600 hover:bg-rose-500 text-white cursor-pointer ml-1"
                 title="Đóng"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -657,9 +712,12 @@ export const QuestionDiagram: React.FC<QuestionDiagramProps> = ({ type, imageUrl
           <div
             className="w-full max-w-3xl flex-1 my-3 bg-[#f8fafc] rounded-2xl border-2 border-amber-400/70 shadow-2xl overflow-auto flex items-center justify-center p-4 sm:p-8"
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleDiagramTouchStart}
+            onTouchMove={handleDiagramTouchMove}
+            onTouchEnd={handleDiagramTouchEnd}
           >
             <div
-              className="w-full flex justify-center items-center transition-transform duration-150 origin-center"
+              className="w-full flex justify-center items-center transition-transform duration-100 origin-center"
               style={{
                 transform: `scale(${Math.max(1.15, scale)})`,
               }}

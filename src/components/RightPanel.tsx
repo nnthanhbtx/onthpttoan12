@@ -87,8 +87,8 @@ export const RightPanel: React.FC<RightPanelProps> = ({
               key={qId}
               onClick={() => handleQuestionClick(qId)}
               className={`relative ${
-                showKey ? 'h-10 flex-col py-0.5' : 'h-8'
-              } rounded-md border flex items-center justify-center text-xs transition-all cursor-pointer font-bold ${buttonStyle}`}
+                showKey ? 'min-h-[46px] flex-col py-1' : 'min-h-[42px] sm:min-h-[36px]'
+              } rounded-lg border flex items-center justify-center text-xs sm:text-sm cursor-pointer font-bold ${buttonStyle}`}
               title={`Câu ${relativeNum} (${q.sectionTitle})${showKey ? ` - Đáp án: ${ansLabel}` : ''}`}
             >
               <span className="leading-tight">{relativeNum}</span>
@@ -102,7 +102,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 </span>
               )}
               {!isSelected && answered && !showKey && (
-                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400" />
               )}
             </button>
           );
