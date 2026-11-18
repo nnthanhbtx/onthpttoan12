@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, ShieldCheck, Lock } from 'lucide-react';
 
 interface StartModalProps {
@@ -8,6 +8,8 @@ interface StartModalProps {
   currentExamTitle?: string;
   totalQuestions?: number;
   onOpenExamBank?: () => void;
+  initialName?: string;
+  initialClassName?: string;
 }
 
 export const StartModal: React.FC<StartModalProps> = ({
@@ -17,10 +19,20 @@ export const StartModal: React.FC<StartModalProps> = ({
   currentExamTitle = 'Đề 01',
   totalQuestions = 22,
   onOpenExamBank,
+  initialName = '',
+  initialClassName = '',
 }) => {
-  const [name, setName] = useState('');
-  const [className, setClassName] = useState('');
+  const [name, setName] = useState(initialName);
+  const [className, setClassName] = useState(initialClassName);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialName && !name) setName(initialName);
+      if (initialClassName && !className) setClassName(initialClassName);
+      setError('');
+    }
+  }, [isOpen, initialName, initialClassName]);
 
   if (!isOpen) return null;
 

@@ -72,10 +72,28 @@ function safariLegacyCssPlugin(): Plugin {
     enforce: 'post',
     transform(code, id) {
       if (id.endsWith('.css') && !id.includes('node_modules')) {
-        return {
-          code: downlevelCss(code, id, false),
-          map: null,
-        };
+        // In Vite dev mode, vite:css-post runs before post plugins and wraps CSS into JS:
+        // `const __vite__css = "..."`
+        const viteCssMatch = code.match(/const __vite__css = ("(?:[^"\\]|\\.)*")/);
+        if (viteCssMatch) {
+          try {
+            const rawCss = JSON.parse(viteCssMatch[1]);
+            const processed = downlevelCss(rawCss, id, false);
+            return {
+              code: code.replace(viteCssMatch[1], () => JSON.stringify(processed)),
+              map: null,
+            };
+          } catch {
+            return null;
+          }
+        }
+        // Only downlevel directly if `code` is raw CSS (not already compiled to JS)
+        if (!code.includes('__vite__updateStyle') && !code.includes('export default')) {
+          return {
+            code: downlevelCss(code, id, false),
+            map: null,
+          };
+        }
       }
     },
     generateBundle(_options, bundle) {

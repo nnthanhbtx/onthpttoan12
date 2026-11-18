@@ -114,8 +114,8 @@ export const ExamBankModal: React.FC<ExamBankModalProps> = ({
             />
           </div>
 
-          {/* Quick Create Buttons - ONLY visible to authenticated owner */}
-          {isOwnerAuthenticated && (
+          {/* Quick Create Buttons - Owner controls or unlock shortcut */}
+          {isOwnerAuthenticated ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Generate Similar from active exam */}
               {onGenerateSimilar && (
@@ -140,6 +140,7 @@ export const ExamBankModal: React.FC<ExamBankModalProps> = ({
               {/* Import Word (Open directly for owner) */}
               <button
                 onClick={() => {
+                  onClose();
                   if (onOpenWordImport) {
                     onOpenWordImport();
                   }
@@ -151,6 +152,18 @@ export const ExamBankModal: React.FC<ExamBankModalProps> = ({
                 <span>NHẬP TỪ WORD</span>
               </button>
             </div>
+          ) : (
+            onOpenOwnerAuth && (
+              <button
+                type="button"
+                onClick={onOpenOwnerAuth}
+                className="py-1.5 px-3 rounded-lg bg-[#0f244a] hover:bg-[#193569] text-amber-300 font-bold text-xs flex items-center gap-1.5 border border-amber-400/50 transition cursor-pointer"
+                title="Đăng nhập quyền Giáo viên để tạo đề tương tự, đổi tên hoặc xóa đề"
+              >
+                <span>👑</span>
+                <span>Quản trị / Tạo đề</span>
+              </button>
+            )
           )}
         </div>
 

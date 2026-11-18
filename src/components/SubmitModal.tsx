@@ -12,6 +12,9 @@ interface SubmitModalProps {
   onRestart: () => void;
   onSaveScore: (name: string) => void;
   currentExamTitle?: string;
+  totalPartI?: number;
+  totalPartII?: number;
+  totalPartIII?: number;
 }
 
 export const SubmitModal: React.FC<SubmitModalProps> = ({
@@ -20,13 +23,17 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
   result,
   onReview,
   onRestart,
-  onSaveScore,
-  currentExamTitle = 'Đề 1',
+  currentExamTitle = 'Đề 01',
+  totalPartI = 12,
+  totalPartII = 4,
+  totalPartIII = 6,
 }) => {
   useEffect(() => {
-    if (isOpen) {
-      fireSubmissionConfetti(result.score);
-    }
+    if (!isOpen) return;
+    const cleanup = fireSubmissionConfetti(result.score);
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
   }, [isOpen, result.score]);
 
   if (!isOpen) return null;
@@ -87,23 +94,23 @@ export const SubmitModal: React.FC<SubmitModalProps> = ({
         {/* Section Stats Breakdown */}
         <div className="bg-[#0f1a36] p-3 rounded-lg border border-[#1e345e] space-y-2 text-xs sm:text-sm">
           <div className="flex justify-between items-center text-slate-200">
-            <span>Phần I (Trắc nghiệm 12 câu):</span>
+            <span>Phần I (Trắc nghiệm {totalPartI} câu):</span>
             <span className="font-bold text-amber-300">
-              {result.totalCorrectPartI} / 12 đúng ({result.partIScore.toFixed(2)} điểm)
+              {result.totalCorrectPartI} / {totalPartI} đúng ({result.partIScore.toFixed(2)} điểm)
             </span>
           </div>
 
           <div className="flex justify-between items-center text-slate-200">
-            <span>Phần II (Đúng/Sai 4 câu):</span>
+            <span>Phần II (Đúng/Sai {totalPartII} câu):</span>
             <span className="font-bold text-amber-300">
-              {result.totalCorrectPartII} / 4 đúng ({result.partIIScore.toFixed(2)} điểm)
+              {result.totalCorrectPartII} / {totalPartII} đúng ({result.partIIScore.toFixed(2)} điểm)
             </span>
           </div>
 
           <div className="flex justify-between items-center text-slate-200">
-            <span>Phần III (Trả lời ngắn 6 câu):</span>
+            <span>Phần III (Trả lời ngắn {totalPartIII} câu):</span>
             <span className="font-bold text-amber-300">
-              {result.totalCorrectPartIII} / 6 đúng ({result.partIIIScore.toFixed(2)} điểm)
+              {result.totalCorrectPartIII} / {totalPartIII} đúng ({result.partIIIScore.toFixed(2)} điểm)
             </span>
           </div>
 

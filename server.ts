@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -550,12 +551,38 @@ ${rawText ? `\n\nNỘI DUNG VĂN BẢN TRÍCH XUẤT:\n${rawText}` : ''}`;
     currentFile.includes('dist') ||
     currentFile.endsWith('.cjs');
 
+  const httpServer = http.createServer(app);
+
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
+    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: isHmrDisabled ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
+
+    if (isHmrDisabled) {
+      app.get('/@vite/client', async (_req, res, next) => {
+        try {
+          const transformed = await vite.transformRequest('/@vite/client');
+          if (transformed?.code) {
+            const safeCode = transformed.code.replace(
+              'transport.connect(createHMRHandler(handleMessage));',
+              '/* HMR disabled in AI Studio: skipped WebSocket connect */'
+            );
+            res.status(200).type('application/javascript').send(safeCode);
+            return;
+          }
+        } catch {
+          // Fall through to vite.middlewares
+        }
+        next();
+      });
+    }
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(process.cwd(), 'dist');
@@ -565,7 +592,7 @@ ${rawText ? `\n\nNỘI DUNG VĂN BẢN TRÍCH XUẤT:\n${rawText}` : ''}`;
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

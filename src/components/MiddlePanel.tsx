@@ -7,6 +7,7 @@ import { QuestionDiagram } from './QuestionDiagram';
 interface MiddlePanelProps {
   question: Question;
   currentQuestionIndex: number;
+  sectionQuestionNumber?: number;
   totalQuestions: number;
   currentExamTitle?: string;
   userAnswers: UserAnswers;
@@ -29,6 +30,7 @@ interface MiddlePanelProps {
 export const MiddlePanel: React.FC<MiddlePanelProps> = ({
   question,
   currentQuestionIndex,
+  sectionQuestionNumber,
   totalQuestions,
   currentExamTitle = 'Đề 01',
   userAnswers,
@@ -155,9 +157,11 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
     }
   }, [question.id]);
 
+  const voiceNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showNotification = (msg: string) => {
     setVoiceNotice(msg);
-    setTimeout(() => {
+    if (voiceNoticeTimerRef.current) clearTimeout(voiceNoticeTimerRef.current);
+    voiceNoticeTimerRef.current = setTimeout(() => {
       setVoiceNotice(null);
     }, 2800);
   };
@@ -349,10 +353,10 @@ export const MiddlePanel: React.FC<MiddlePanelProps> = ({
               <div className="px-2.5 sm:px-3 py-1 rounded-full border border-amber-400 text-[#facc15] text-[11px] sm:text-xs font-bold tracking-wide bg-[#0a1738] flex items-center gap-1">
                 <span>
                   {question.section === 'PART_I'
-                    ? `Phần I - Câu ${question.id}`
+                    ? `Phần I - Câu ${sectionQuestionNumber ?? question.id}`
                     : question.section === 'PART_II'
-                    ? `Phần II - Câu ${question.id - 12}`
-                    : `Phần III - Câu ${question.id - 16}`}
+                    ? `Phần II - Câu ${sectionQuestionNumber ?? Math.max(1, question.id - 12)}`
+                    : `Phần III - Câu ${sectionQuestionNumber ?? Math.max(1, question.id - 16)}`}
                 </span>
                 <span className="text-slate-400 text-[10px] font-normal">/ {totalQuestions}</span>
               </div>

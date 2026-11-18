@@ -53,12 +53,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     return String(q.correctAnswer).slice(0, 5);
   };
 
-  const renderGrid = (start: number, end: number, sectionType: 'PART_I' | 'PART_II' | 'PART_III') => {
-    const gridQs = questions.filter((q) => q.id >= start && q.id <= end);
+  const p1Questions = questions.filter((q) => q.section === 'PART_I');
+  const p2Questions = questions.filter((q) => q.section === 'PART_II');
+  const p3Questions = questions.filter((q) => q.section === 'PART_III');
+
+  const renderGrid = (sectionType: 'PART_I' | 'PART_II' | 'PART_III') => {
+    const gridQs = questions.filter((q) => q.section === sectionType);
     const showKey = isTeacherMode || testResult.submitted;
     return (
       <div className="grid grid-cols-4 gap-1.5 mt-2">
-        {gridQs.map((q) => {
+        {gridQs.map((q, idx) => {
           const qId = q.id;
           const isSelected = qId === currentQuestionId;
           const answered = isQuestionAnswered(qId);
@@ -73,13 +77,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             buttonStyle = 'bg-[#10284e] text-emerald-300 border-emerald-500/60 font-bold';
           }
 
-          const relativeNum =
-            sectionType === 'PART_I'
-              ? qId
-              : sectionType === 'PART_II'
-              ? qId - 12
-              : qId - 16;
-
+          const relativeNum = idx + 1;
           const ansLabel = showKey ? getShortAnswerLabel(q) : '';
 
           return (
@@ -116,10 +114,20 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       <div className="flex flex-col gap-3.5">
         {/* Exam Info Title */}
         <div>
-          <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#1e345e]/80">
+          <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-[#1e345e]/80">
             <h2 className="text-sm sm:text-base font-extrabold text-[#facc15] tracking-wider uppercase">
               THÔNG TIN BÀI THI
             </h2>
+            {onOpenExamBank && (
+              <button
+                type="button"
+                onClick={onOpenExamBank}
+                className="px-2 py-0.5 rounded-md bg-[#0d1c40] hover:bg-[#162d61] border border-amber-400/60 text-amber-300 text-[11px] font-bold truncate max-w-[115px] cursor-pointer transition-colors"
+                title={`Đang làm: ${currentExamTitle} (Nhấn để đổi đề)`}
+              >
+                📖 {currentExamTitle}
+              </button>
+            )}
           </div>
 
           {/* Status Legend */}
@@ -139,38 +147,44 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           </div>
 
           <div className="text-xs space-y-3 text-slate-200 font-medium leading-relaxed bg-[#08122c] p-3 rounded-xl border border-[#1e345e]">
-            <div>
-              <div className="flex items-start justify-between mb-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[#facc15] font-bold">•</span>
-                  <strong className="text-amber-300">Phần I (12 câu):</strong>
-                </span>
-                <span className="text-[11px] text-slate-400">Trắc nghiệm ABCD</span>
+            {p1Questions.length > 0 && (
+              <div>
+                <div className="flex items-start justify-between mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[#facc15] font-bold">•</span>
+                    <strong className="text-amber-300">Phần I ({p1Questions.length} câu):</strong>
+                  </span>
+                  <span className="text-[11px] text-slate-400">Trắc nghiệm ABCD</span>
+                </div>
+                {renderGrid('PART_I')}
               </div>
-              {questions.length > 0 && renderGrid(1, 12, 'PART_I')}
-            </div>
+            )}
             
-            <div className="pt-2 border-t border-[#1e345e]/60">
-              <div className="flex items-start justify-between mb-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-cyan-400 font-bold">•</span>
-                  <strong className="text-cyan-300">Phần II (4 câu):</strong>
-                </span>
-                <span className="text-[11px] text-slate-400">Đúng / Sai</span>
+            {p2Questions.length > 0 && (
+              <div className="pt-2 border-t border-[#1e345e]/60">
+                <div className="flex items-start justify-between mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-cyan-400 font-bold">•</span>
+                    <strong className="text-cyan-300">Phần II ({p2Questions.length} câu):</strong>
+                  </span>
+                  <span className="text-[11px] text-slate-400">Đúng / Sai</span>
+                </div>
+                {renderGrid('PART_II')}
               </div>
-              {questions.length > 0 && renderGrid(13, 16, 'PART_II')}
-            </div>
+            )}
 
-            <div className="pt-2 border-t border-[#1e345e]/60">
-              <div className="flex items-start justify-between mb-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-rose-400 font-bold">•</span>
-                  <strong className="text-rose-300">Phần III (6 câu):</strong>
-                </span>
-                <span className="text-[11px] text-slate-400">Trả lời ngắn</span>
+            {p3Questions.length > 0 && (
+              <div className="pt-2 border-t border-[#1e345e]/60">
+                <div className="flex items-start justify-between mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-rose-400 font-bold">•</span>
+                    <strong className="text-rose-300">Phần III ({p3Questions.length} câu):</strong>
+                  </span>
+                  <span className="text-[11px] text-slate-400">Trả lời ngắn</span>
+                </div>
+                {renderGrid('PART_III')}
               </div>
-              {questions.length > 0 && renderGrid(17, 22, 'PART_III')}
-            </div>
+            )}
           </div>
         </div>
 
@@ -197,15 +211,15 @@ export const RightPanel: React.FC<RightPanelProps> = ({
               <div className="text-xs space-y-1 text-slate-300">
                 <p className="flex justify-between">
                   <span>• Phần I:</span>
-                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartI}/12 câu</span>
+                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartI}/{p1Questions.length} câu</span>
                 </p>
                 <p className="flex justify-between">
                   <span>• Phần II:</span>
-                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartII}/4 câu</span>
+                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartII}/{p2Questions.length} câu</span>
                 </p>
                 <p className="flex justify-between">
                   <span>• Phần III:</span>
-                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartIII}/6 câu</span>
+                  <span className="font-bold font-mono text-white tabular-nums">{testResult.totalCorrectPartIII}/{p3Questions.length} câu</span>
                 </p>
                 <p className="pt-1.5 border-t border-slate-700/60 flex items-center justify-between text-[11px]">
                   <span>Rời màn hình:</span>

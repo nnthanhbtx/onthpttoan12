@@ -29,7 +29,6 @@ import { ExamBankModal } from './components/ExamBankModal';
 import { ViolationWarningModal } from './components/ViolationWarningModal';
 import { generateSimilarExamAsync } from './lib/similarExamGenerator';
 import { soundFx } from './utils/sound';
-import { fireSubmissionConfetti } from './utils/confetti';
 import { cleanStrayArtifacts, normalizeVectors } from './components/MathText';
 import { OfflineIndicator, MobileTopInstallBadge } from './components/PWAWidgets';
 
@@ -225,6 +224,7 @@ function ensureCleanExamStorage() {
       localStorage.removeItem('thpt2027_user_answers');
       localStorage.removeItem('thpt2027_time_remaining');
       localStorage.removeItem('thpt2027_is_started');
+      localStorage.removeItem('thpt2027_test_result');
       localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_STORAGE_VERSION);
     }
   } catch (e) {}
@@ -453,7 +453,41 @@ export default function App() {
     return false;
   });
 
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>(() => {
+    try {
+      const saved = localStorage.getItem('thpt2027_test_result');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.submitted) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return {
+      submitted: false,
+      score: 0,
+      partIScore: 0,
+      partIIScore: 0,
+      partIIIScore: 0,
+      totalCorrectPartI: 0,
+      totalCorrectPartII: 0,
+      totalCorrectPartIII: 0,
+      timeSpentSeconds: 0,
+      violationCount: 0,
+      violationLogs: [],
+    };
+  });
+
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('thpt2027_test_result');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Boolean(parsed && parsed.submitted);
+      }
+    } catch (e) {}
+    return false;
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
@@ -508,23 +542,21 @@ export default function App() {
   const [latestViolationReason, setLatestViolationReason] = useState('');
   const lastViolationTimeRef = useRef<number>(0);
 
-  const [testResult, setTestResult] = useState<TestResult>({
-    submitted: false,
-    score: 0,
-    partIScore: 0,
-    partIIScore: 0,
-    partIIIScore: 0,
-    totalCorrectPartI: 0,
-    totalCorrectPartII: 0,
-    totalCorrectPartIII: 0,
-    timeSpentSeconds: 0,
-    violationCount: 0,
-    violationLogs: [],
-  });
-
   const appContainerRef = useRef<HTMLDivElement>(null);
   const mobileQuestionStripRef = useRef<HTMLDivElement>(null);
   const currentQuestion = questions[currentQuestionIndex] || questions[0];
+
+  const partIQuestions = questions.filter((q) => q.section === 'PART_I');
+  const partIIQuestions = questions.filter((q) => q.section === 'PART_II');
+  const partIIIQuestions = questions.filter((q) => q.section === 'PART_III');
+  const sectionQuestionNumber = currentQuestion
+    ? (currentQuestion.section === 'PART_I'
+        ? partIQuestions
+        : currentQuestion.section === 'PART_II'
+        ? partIIQuestions
+        : partIIIQuestions
+      ).findIndex((q) => q.id === currentQuestion.id) + 1
+    : 1;
 
   const currentExam = examHistory.find((e) => e.id === currentExamId) || examHistory[0] || {
     id: 1,
@@ -584,6 +616,16 @@ export default function App() {
       localStorage.setItem('quiz_player_info', JSON.stringify(playerInfo));
     } catch (e) {}
   }, [playerInfo]);
+
+  useEffect(() => {
+    try {
+      if (testResult.submitted) {
+        localStorage.setItem('thpt2027_test_result', JSON.stringify(testResult));
+      } else {
+        localStorage.removeItem('thpt2027_test_result');
+      }
+    } catch (e) {}
+  }, [testResult]);
 
   // Auto unlock Web Audio & iOS Safari :active touch states on first mobile touch/pointerdown
   useEffect(() => {
@@ -1018,8 +1060,9 @@ export default function App() {
     setIsTeacherMode((prev) => !prev);
   };
 
-  // Open Word Import modal directly from Control Panel
+  // Open Word Import modal directly from Control Panel or Exam Bank
   const handleOpenWordImport = () => {
+    setIsExamBankOpen(false);
     setIsWordModalOpen(true);
   };
 
@@ -1040,6 +1083,7 @@ export default function App() {
     setCurrentExamId(newId);
     setUserAnswers({});
     setCurrentQuestionIndex(0);
+    setMobileTab('question');
     setTimeRemaining(90 * 60);
     setIsStarted(false);
     setIsSubmitted(false);
@@ -1105,10 +1149,13 @@ export default function App() {
       localStorage.removeItem('thpt2027_user_answers');
 
       setCurrentQuestionIndex(0);
+      setMobileTab('question');
       setTimeRemaining(90 * 60);
       setIsStarted(false);
       setIsSubmitted(false);
       setIsTeacherMode(false);
+      setViolationCount(0);
+      setViolationLogs([]);
       setTestResult({
         submitted: false,
         score: 0,
@@ -1120,6 +1167,7 @@ export default function App() {
         totalCorrectPartIII: 0,
         timeSpentSeconds: 0,
         violationCount: 0,
+        violationLogs: [],
       });
 
       setIsExamBankOpen(false);
@@ -1151,6 +1199,7 @@ export default function App() {
       setCurrentExamId(nextExam.id);
       setUserAnswers({});
       setCurrentQuestionIndex(0);
+      setMobileTab('question');
       setTimeRemaining(90 * 60);
       setIsStarted(false);
       setIsSubmitted(false);
@@ -1195,6 +1244,7 @@ export default function App() {
     setCurrentExamId(exam.id);
     setUserAnswers({});
     setCurrentQuestionIndex(0);
+    setMobileTab('question');
     setTimeRemaining(90 * 60);
     setIsStarted(false);
     setIsSubmitted(false);
@@ -1243,13 +1293,15 @@ export default function App() {
     });
   };
 
-  // Reset Test for SubmitModal
+  // Reset Test for SubmitModal & Control Panel
   const handleReset = () => {
     setUserAnswers({});
     setCurrentQuestionIndex(0);
+    setMobileTab('question');
     setTimeRemaining(90 * 60);
     setIsStarted(false);
     setIsSubmitted(false);
+    setIsTeacherMode(false);
     setViolationCount(0);
     setViolationLogs([]);
     setTestResult({
@@ -1267,8 +1319,14 @@ export default function App() {
     });
   };
 
-  // Calculate score and submit
+  // Calculate score and submit (guarded against duplicate submissions)
   const calculateAndSubmitScore = () => {
+    if (isSubmitted) {
+      setIsModalOpen(true);
+      return;
+    }
+
+    lockCurrentPartIIIIfNeeded();
     let p1Correct = 0;
     let p1Score = 0;
 
@@ -1331,11 +1389,9 @@ export default function App() {
     setTestResult(result);
     setIsSubmitted(true);
     setIsModalOpen(true);
-    setTimeRemaining(90 * 60); // Reset timer to 90:00
 
-    // Play victory celebration fanfare and launch fireworks
+    // Play victory celebration fanfare (SubmitModal triggers confetti cleanly)
     soundFx.playCelebration();
-    fireSubmissionConfetti(totalScore);
 
     // Auto-save score if we have player info
     if (playerInfo.name) {
@@ -1428,19 +1484,34 @@ export default function App() {
                 <span>▶</span>
                 <span>Thi</span>
               </button>
+            ) : isSubmitted ? (
+              <>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-amber-400 to-yellow-500 border border-amber-300 text-slate-950 font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
+                >
+                  <span>🏆</span>
+                  <span>{testResult.score.toFixed(1)}đ</span>
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-rose-500 to-rose-700 border border-rose-400 text-white font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
+                >
+                  <span>🔄</span>
+                  <span>Lại</span>
+                </button>
+              </>
             ) : (
               <>
                 <div className="px-2 min-h-[34px] flex items-center rounded-lg bg-[#030712] border border-amber-400/80 text-amber-300 font-mono font-bold text-xs tracking-wider">
                   ⏱️ {formattedTime}
                 </div>
-                {!isSubmitted && (
-                  <button
-                    onClick={calculateAndSubmitScore}
-                    className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-orange-500 to-orange-700 border border-orange-300 text-white font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
-                  >
-                    <span>Nộp</span>
-                  </button>
-                )}
+                <button
+                  onClick={calculateAndSubmitScore}
+                  className="px-2.5 min-h-[34px] rounded-lg bg-gradient-to-b from-orange-500 to-orange-700 border border-orange-300 text-white font-extrabold text-xs flex items-center gap-1 shadow cursor-pointer"
+                >
+                  <span>Nộp</span>
+                </button>
               </>
             )}
 
@@ -1553,6 +1624,8 @@ export default function App() {
             timeRemainingSeconds={timeRemaining}
             onSubmit={calculateAndSubmitScore}
             onStart={() => setIsStartModalOpen(true)}
+            onReset={handleReset}
+            onOpenResultModal={() => setIsModalOpen(true)}
             isStarted={isStarted}
             onToggleFullscreen={handleToggleFullscreen}
             onToggleTeacherMode={handleToggleTeacherMode}
@@ -1587,6 +1660,7 @@ export default function App() {
             <MiddlePanel
               question={currentQuestion}
               currentQuestionIndex={currentQuestionIndex}
+              sectionQuestionNumber={sectionQuestionNumber}
               totalQuestions={questions.length}
               currentExamTitle={currentExamTitle}
               userAnswers={userAnswers}
@@ -1646,6 +1720,9 @@ export default function App() {
         onRestart={handleReset}
         onSaveScore={() => {}} // Saved automatically
         currentExamTitle={currentExamTitle}
+        totalPartI={partIQuestions.length}
+        totalPartII={partIIQuestions.length}
+        totalPartIII={partIIIQuestions.length}
       />
 
       <Leaderboard 
@@ -1695,8 +1772,11 @@ export default function App() {
         currentExamTitle={currentExamTitle}
         totalQuestions={questions.length}
         onOpenExamBank={() => setIsExamBankOpen(true)}
+        initialName={playerInfo.name}
+        initialClassName={playerInfo.className}
         onStart={(name, className) => {
           setPlayerInfo({ name, className });
+          setIsTeacherMode(false);
           setIsStartModalOpen(false);
           setIsStarted(true);
         }}

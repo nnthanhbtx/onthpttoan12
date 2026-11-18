@@ -3,21 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <script>
-      // 1. Suppress harmless AI Studio HMR WebSocket noise
-      window.addEventListener('unhandledrejection', function (event) {
-        var msg = event && event.reason && (event.reason.message || String(event.reason));
-        if (typeof msg === 'string' && msg.indexOf('WebSocket closed without opened') !== -1) {
-          event.preventDefault();
-          event.stopPropagation();
+      // 1. Suppress harmless Vite HMR WebSocket noise behind reverse proxies
+      (function () {
+        function isHarmlessViteWsText(text) {
+          if (typeof text !== 'string') return false;
+          return (
+            text.indexOf('WebSocket closed without opened') !== -1 ||
+            text.indexOf('failed to connect to websocket') !== -1 ||
+            (text.indexOf('@vite/client') !== -1 && text.indexOf('WebSocket') !== -1)
+          );
         }
-      }, true);
-      window.addEventListener('error', function (event) {
-        var msg = event && (event.message || (event.error && event.error.message));
-        if (typeof msg === 'string' && msg.indexOf('WebSocket closed without opened') !== -1) {
-          event.preventDefault();
-          event.stopPropagation();
+
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event && event.reason;
+          var msg = reason && (reason.message || reason.stack || String(reason));
+          if (isHarmlessViteWsText(msg)) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+
+        window.addEventListener('error', function (event) {
+          var msg = event && (event.message || (event.error && (event.error.message || event.error.stack)));
+          var file = event && event.filename;
+          if (isHarmlessViteWsText(msg) || (typeof file === 'string' && file.indexOf('@vite/client') !== -1 && String(msg).indexOf('WebSocket') !== -1)) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+
+        if (typeof console !== 'undefined' && typeof console.error === 'function') {
+          var origConsoleError = console.error;
+          console.error = function () {
+            try {
+              var combined = '';
+              for (var i = 0; i < arguments.length; i++) {
+                var a = arguments[i];
+                combined += (a && (a.stack || a.message)) ? (a.message || a.stack) : String(a);
+                combined += ' ';
+              }
+              if (isHarmlessViteWsText(combined)) {
+                return;
+              }
+            } catch (e) {}
+            return origConsoleError.apply(console, arguments);
+          };
         }
-      }, true);
+      })();
 
       // 2. ES2019-ES2025 Runtime Polyfills for older iOS Safari (iPhone 8, iPhone X, iPhone XS Max on iOS 13-17.3)
       (function () {

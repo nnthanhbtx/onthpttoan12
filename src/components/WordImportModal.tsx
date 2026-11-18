@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Question } from '../types';
 import {
   extractTextFromDocx,
@@ -38,6 +38,12 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [parseTimeMs, setParseTimeMs] = useState<number | null>(null);
   const [previewFilter, setPreviewFilter] = useState<'ALL' | 'PART_I' | 'PART_II' | 'PART_III' | 'WITH_IMAGE'>('ALL');
+
+  useEffect(() => {
+    if (isOpen && !selectedFile && !pastedText.trim()) {
+      setExamTitle(defaultExamTitle);
+    }
+  }, [isOpen, defaultExamTitle, selectedFile, pastedText]);
 
   if (!isOpen) return null;
 
@@ -168,9 +174,14 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
 
   // Copy sample format
   const handleCopySample = () => {
-    navigator.clipboard.writeText(SAMPLE_WORD_FORMAT);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(SAMPLE_WORD_FORMAT).then(() => {
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+        }).catch(() => {});
+      }
+    } catch {}
   };
 
   // Update a question's answer or image in the preview list

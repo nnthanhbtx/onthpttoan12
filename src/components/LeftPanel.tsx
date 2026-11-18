@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Trophy, Play, CheckCircle2, FileUp, Eye } from 'lucide-react';
+import { BookOpen, Trophy, Play, CheckCircle2, FileUp, Eye, RotateCcw, Award, Volume2, VolumeX } from 'lucide-react';
 import { UserAnswers, ExamRecord, Question } from '../types';
 import { PWAInstallButton } from './PWAWidgets';
 
@@ -9,6 +9,8 @@ interface LeftPanelProps {
   timeRemainingSeconds: number;
   onSubmit: () => void;
   onStart?: () => void;
+  onReset?: () => void;
+  onOpenResultModal?: () => void;
   isStarted?: boolean;
   onToggleFullscreen: () => void;
   onToggleTeacherMode: () => void;
@@ -36,6 +38,8 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
   timeRemainingSeconds,
   onSubmit,
   onStart,
+  onReset,
+  onOpenResultModal,
   isStarted = true,
   onToggleTeacherMode,
   isTeacherMode,
@@ -43,7 +47,6 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
   isSoundEnabled = true,
   onOpenWordImport,
   onOpenExamBank,
-  currentExamTitle = 'Đề 01',
   userAnswers,
   questions,
   isSubmitted = false,
@@ -98,11 +101,17 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
         {isStarted && (
           <div className="w-full bg-[#030712] border border-amber-400/70 rounded-xl py-3 px-3 flex flex-col items-center justify-center shadow-inner animate-in fade-in duration-200">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">
-              Thời gian còn lại
+              {isSubmitted ? 'Trạng thái bài thi' : 'Thời gian còn lại'}
             </span>
-            <span className="text-3xl font-extrabold text-[#facc15] font-mono tabular-nums tracking-widest">
-              {formattedTime}
-            </span>
+            {isSubmitted ? (
+              <span className="text-base font-extrabold text-emerald-400 tracking-wide uppercase">
+                ✓ Đã nộp bài ({formattedTime} còn lại)
+              </span>
+            ) : (
+              <span className="text-3xl font-extrabold text-[#facc15] font-mono tabular-nums tracking-widest">
+                {formattedTime}
+              </span>
+            )}
           </div>
         )}
 
@@ -146,7 +155,7 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
             </button>
           )}
 
-          {/* Button: BẮT ĐẦU / KẾT THÚC BÀI THI */}
+          {/* Button: BẮT ĐẦU / NỘP BÀI / XEM KẾT QUẢ & LÀM LẠI */}
           {!isStarted ? (
             <button
               onClick={onStart}
@@ -155,6 +164,27 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
               <Play size={15} className="fill-current shrink-0" />
               <span>BẮT ĐẦU LÀM BÀI</span>
             </button>
+          ) : isSubmitted ? (
+            <div className="grid grid-cols-2 gap-2">
+              {onOpenResultModal && (
+                <button
+                  onClick={onOpenResultModal}
+                  className="w-full py-2.5 px-2.5 rounded-xl font-extrabold text-slate-950 text-[11px] tracking-wider uppercase bg-gradient-to-b from-[#fde047] to-[#eab308] hover:brightness-110 active:scale-[0.98] transition-all shadow-md border border-amber-300/80 cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  <Award size={14} className="shrink-0" />
+                  <span>XEM ĐIỂM</span>
+                </button>
+              )}
+              {onReset && (
+                <button
+                  onClick={onReset}
+                  className="w-full py-2.5 px-2.5 rounded-xl font-bold text-white text-[11px] tracking-wider uppercase bg-gradient-to-b from-[#f43f5e] to-[#be123c] hover:brightness-110 active:scale-[0.98] transition-all shadow-md border border-rose-400/50 cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  <RotateCcw size={14} className="shrink-0" />
+                  <span>LÀM LẠI</span>
+                </button>
+              )}
+            </div>
           ) : (
             <button
               onClick={onSubmit}
@@ -186,6 +216,22 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({
             <Eye size={15} className="shrink-0" />
             <span>{isTeacherMode ? 'GIÁO VIÊN: BẬT' : 'CHẾ ĐỘ GIÁO VIÊN'}</span>
           </button>
+
+          {/* Button: ÂM THANH PHẢN HỒI */}
+          {onToggleSound && (
+            <button
+              type="button"
+              onClick={onToggleSound}
+              className={`w-full py-2 px-3 rounded-xl font-bold text-xs tracking-wider uppercase border cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                isSoundEnabled
+                  ? 'bg-[#0a1630] border-cyan-500/50 text-cyan-300 hover:bg-[#102247]'
+                  : 'bg-[#070f22] border-slate-600/60 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {isSoundEnabled ? <Volume2 size={14} className="shrink-0" /> : <VolumeX size={14} className="shrink-0" />}
+              <span>{isSoundEnabled ? 'ÂM THANH: BẬT' : 'ÂM THANH: TẮT'}</span>
+            </button>
+          )}
 
           {/* CÀI ĐẶT APP DÙNG OFFLINE (PWA) */}
           <PWAInstallButton />
