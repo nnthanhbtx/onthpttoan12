@@ -388,7 +388,8 @@ export default function App() {
   const [currentExamId, setCurrentExamId] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('thpt2027_current_exam_id');
-      if (saved) return Number(saved);
+      const parsed = saved ? Number(saved) : NaN;
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
     } catch (e) {}
     return 15;
   });
@@ -399,7 +400,7 @@ export default function App() {
       const savedHistory = localStorage.getItem('thpt2027_exam_history');
       if (savedHistory && savedId) {
         const history: ExamRecord[] = JSON.parse(savedHistory);
-        const match = history.find((e) => e.id === Number(savedId));
+        const match = Array.isArray(history) ? history.find((e) => e.id === Number(savedId)) : undefined;
         if (match && Array.isArray(match.questions) && match.questions.length > 0) {
           return match.questions.map(sanitizeQuestion);
         }
@@ -417,7 +418,10 @@ export default function App() {
   const [userAnswers, setUserAnswers] = useState<UserAnswers>(() => {
     try {
       const saved = localStorage.getItem('thpt2027_user_answers');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
     } catch (e) {}
     return {};
   });
@@ -425,7 +429,8 @@ export default function App() {
   const [timeRemaining, setTimeRemaining] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('thpt2027_time_remaining');
-      if (saved) return Number(saved);
+      const parsed = saved ? Number(saved) : NaN;
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
     } catch (e) {}
     return 90 * 60; // 90 minutes
   });
@@ -443,7 +448,7 @@ export default function App() {
   const [isStarted, setIsStarted] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('thpt2027_is_started');
-      if (saved) return JSON.parse(saved);
+      if (saved) return Boolean(JSON.parse(saved));
     } catch (e) {}
     return false;
   });
@@ -457,7 +462,10 @@ export default function App() {
   const [playerInfo, setPlayerInfo] = useState<{name: string, className: string}>(() => {
     try {
       const saved = localStorage.getItem('quiz_player_info');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return { name: String(parsed.name || ''), className: String(parsed.className || '') };
+      }
     } catch (e) {}
     return { name: '', className: '' };
   });
@@ -465,7 +473,10 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => {
     try {
       const saved = localStorage.getItem('quiz_leaderboard');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {}
     return [];
   });
@@ -478,14 +489,18 @@ export default function App() {
   const [violationCount, setViolationCount] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('quiz_violation_count');
-      if (saved) return Number(saved);
+      const parsed = saved ? Number(saved) : NaN;
+      if (!Number.isNaN(parsed) && parsed >= 0) return parsed;
     } catch (e) {}
     return 0;
   });
   const [violationLogs, setViolationLogs] = useState<ViolationLog[]>(() => {
     try {
       const saved = localStorage.getItem('quiz_violation_logs');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {}
     return [];
   });
@@ -591,18 +606,23 @@ export default function App() {
     };
   }, []);
 
-  // Auto-center active question pill in mobile horizontal strip & scroll to top on mobile
+  // Auto-center active question pill in mobile horizontal strip (iOS 12-18 compatible)
   useEffect(() => {
-    if (mobileQuestionStripRef.current) {
-      const activeBtn = mobileQuestionStripRef.current.querySelector(
+    const strip = mobileQuestionStripRef.current;
+    if (strip) {
+      const activeBtn = strip.querySelector(
         `[data-q-index="${currentQuestionIndex}"]`
       ) as HTMLElement | null;
       if (activeBtn) {
-        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const targetLeft =
+          activeBtn.offsetLeft - strip.clientWidth / 2 + activeBtn.clientWidth / 2;
+        strip.scrollLeft = Math.max(0, targetLeft);
       }
     }
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      try {
+        window.scrollTo(0, 0);
+      } catch {}
     }
   }, [currentQuestionIndex]);
 
@@ -1348,7 +1368,7 @@ export default function App() {
   return (
     <div
       ref={appContainerRef}
-      className="min-h-screen w-full bg-[#060d1f] text-slate-100 flex flex-col items-center justify-start lg:justify-center p-2 sm:p-3 selection:bg-amber-400 selection:text-black font-sans pb-safe pt-safe"
+      className="min-h-screen w-full bg-[#060d1f] text-slate-100 flex flex-col items-center justify-start lg:justify-center p-2 sm:p-3 selection:bg-amber-400 selection:text-black font-sans pb-safe pt-safe pl-safe pr-safe"
     >
       {/* DESKTOP TOP HEADER */}
       <div className="w-full max-w-7xl hidden lg:block mb-3 rounded-2xl overflow-hidden shadow-xl border border-[#1e345e]/80">
@@ -1361,8 +1381,8 @@ export default function App() {
         />
       </div>
 
-      {/* MOBILE STICKY TOP BAR & VIEW SWITCHER (ONLY ON MOBILE < LG) */}
-      <div className="w-full max-w-7xl lg:hidden flex flex-col gap-1.5 mb-2 sticky top-0 z-30 bg-[#060d1f]/95 backdrop-blur-md pt-1 pb-1.5 border-b border-[#1e345e]/80">
+      {/* MOBILE STICKY TOP BAR & VIEW SWITCHER (ONLY ON MOBILE < LG - Solid bg avoids iOS 14-16 sticky touch drift) */}
+      <div className="w-full max-w-7xl lg:hidden flex flex-col gap-1.5 mb-2 sticky top-0 z-30 bg-[#060d1f] pt-1 pb-1.5 border-b border-[#1e345e]">
         {/* Top Info Strip */}
         <div className="flex items-center justify-between bg-[#071026] px-2.5 py-1.5 rounded-xl border border-[#1e345e] gap-1.5">
           {/* App Badge & Owner Status */}

@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <script>
+      // 1. Suppress harmless AI Studio HMR WebSocket noise
       window.addEventListener('unhandledrejection', function (event) {
         var msg = event && event.reason && (event.reason.message || String(event.reason));
         if (typeof msg === 'string' && msg.indexOf('WebSocket closed without opened') !== -1) {
@@ -17,6 +18,112 @@
           event.stopPropagation();
         }
       }, true);
+
+      // 2. ES2019-ES2025 Runtime Polyfills for older iOS Safari (iPhone 8, iPhone X, iPhone XS Max on iOS 13-17.3)
+      (function () {
+        if (typeof globalThis === 'undefined' && typeof window !== 'undefined') {
+          window.globalThis = window;
+        }
+        if (typeof queueMicrotask !== 'function') {
+          window.queueMicrotask = function (cb) {
+            Promise.resolve().then(cb);
+          };
+        }
+        if (typeof Promise !== 'undefined' && typeof Promise.withResolvers !== 'function') {
+          Promise.withResolvers = function () {
+            var resolve, reject;
+            var promise = new Promise(function (res, rej) {
+              resolve = res;
+              reject = rej;
+            });
+            return { promise: promise, resolve: resolve, reject: reject };
+          };
+        }
+        if (typeof Object.hasOwn !== 'function') {
+          Object.hasOwn = function (obj, prop) {
+            return obj != null && Object.prototype.hasOwnProperty.call(obj, prop);
+          };
+        }
+        if (!Array.prototype.at) {
+          Object.defineProperty(Array.prototype, 'at', {
+            value: function (n) {
+              n = Math.trunc(n) || 0;
+              if (n < 0) n += this.length;
+              if (n < 0 || n >= this.length) return undefined;
+              return this[n];
+            },
+            writable: true,
+            configurable: true,
+          });
+        }
+        if (!String.prototype.at) {
+          Object.defineProperty(String.prototype, 'at', {
+            value: function (n) {
+              n = Math.trunc(n) || 0;
+              if (n < 0) n += this.length;
+              if (n < 0 || n >= this.length) return undefined;
+              return String(this).charAt(n);
+            },
+            writable: true,
+            configurable: true,
+          });
+        }
+        if (!Array.prototype.findLast) {
+          Object.defineProperty(Array.prototype, 'findLast', {
+            value: function (predicate, thisArg) {
+              for (var i = this.length - 1; i >= 0; i--) {
+                if (predicate.call(thisArg, this[i], i, this)) return this[i];
+              }
+              return undefined;
+            },
+            writable: true,
+            configurable: true,
+          });
+        }
+        if (!Array.prototype.findLastIndex) {
+          Object.defineProperty(Array.prototype, 'findLastIndex', {
+            value: function (predicate, thisArg) {
+              for (var i = this.length - 1; i >= 0; i--) {
+                if (predicate.call(thisArg, this[i], i, this)) return i;
+              }
+              return -1;
+            },
+            writable: true,
+            configurable: true,
+          });
+        }
+        if (!String.prototype.replaceAll) {
+          Object.defineProperty(String.prototype, 'replaceAll', {
+            value: function (search, replacement) {
+              var target = String(this);
+              if (search instanceof RegExp) {
+                if (!search.global) {
+                  throw new TypeError('replaceAll must be called with a global RegExp');
+                }
+                return target.replace(search, replacement);
+              }
+              return target.split(String(search)).join(String(replacement));
+            },
+            writable: true,
+            configurable: true,
+          });
+        }
+        if (typeof window.structuredClone !== 'function') {
+          window.structuredClone = function (val) {
+            return val === undefined ? undefined : JSON.parse(JSON.stringify(val));
+          };
+        }
+        if (typeof URL !== 'undefined' && typeof URL.canParse !== 'function') {
+          URL.canParse = function (url, base) {
+            try {
+              new URL(url, base);
+              return true;
+            } catch (e) {
+              return false;
+            }
+          };
+        }
+      })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
     <meta name="theme-color" content="#060d1f" />
@@ -36,6 +143,34 @@
   </head>
   <body class="bg-[#060d1f] text-slate-100 antialiased selection:bg-amber-400 selection:text-black">
     <div id="root"></div>
+    <script>
+      // Pre-React fallback recovery UI if a legacy device fails to boot within 5s or throws before mount
+      (function () {
+        var bootFailed = false;
+        function showBootRecovery(errText) {
+          if (bootFailed) return;
+          var root = document.getElementById('root');
+          if (!root || root.childNodes.length > 0) return;
+          bootFailed = true;
+          root.innerHTML =
+            '<div style="min-height:100vh;background:#060d1f;color:#f1f5f9;display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,sans-serif;">' +
+            '<div style="max-width:400px;width:100%;background:#0b1532;border:2px solid #facc15;border-radius:16px;padding:22px;text-align:center;">' +
+            '<div style="font-size:32px;margin-bottom:8px;">⚠️</div>' +
+            '<h2 style="margin:0 0 8px;font-size:17px;color:#fde047;">KHÔNG THỂ KHỞI ĐỘNG ỨNG DỤNG</h2>' +
+            '<p style="margin:0 0 14px;font-size:13px;color:#cbd5e1;line-height:1.5;">' + (errText || 'Trình duyệt trên thiết bị gặp sự cố khi tải dữ liệu.') + '</p>' +
+            '<button onclick="try{localStorage.clear();}catch(e){}location.reload();" style="width:100%;padding:12px;border:none;border-radius:10px;background:#facc15;color:#0f172a;font-weight:800;font-size:14px;cursor:pointer;">Tải lại &amp; Làm mới bộ nhớ</button>' +
+            '</div></div>';
+        }
+        window.addEventListener('error', function (ev) {
+          var msg = ev && (ev.message || (ev.error && ev.error.message)) || '';
+          if (msg.indexOf('WebSocket closed without opened') !== -1) return;
+          var root = document.getElementById('root');
+          if (root && root.childNodes.length === 0) {
+            showBootRecovery(msg);
+          }
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

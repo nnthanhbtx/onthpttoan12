@@ -1,13 +1,5 @@
-import JSZip from 'jszip';
-import mammoth from 'mammoth/mammoth.browser.js';
-import * as pdfjsLib from 'pdfjs-dist';
 import { Question } from '../types';
 import { normalizeVectors } from '../components/MathText';
-
-// Set up pdf.js worker for browser execution
-if (typeof window !== 'undefined' && (pdfjsLib as any).GlobalWorkerOptions) {
-  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
-}
 
 export const SAMPLE_WORD_FORMAT = `==== ĐỀ THI TRẮC NGHIỆM MẪU (CHUẨN GDPT 2018) ====
 
@@ -408,6 +400,8 @@ export async function extractTextFromDocx(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
 
   try {
+    const jszipModule = await import('jszip');
+    const JSZip = (jszipModule as any).default || jszipModule;
     const zip = await JSZip.loadAsync(arrayBuffer);
     const docXmlFile = zip.file('word/document.xml');
     if (!docXmlFile) {
@@ -807,12 +801,15 @@ export async function extractTextFromDocx(file: File): Promise<string> {
   }
 
   // Fallback to Mammoth if direct XML parsing did not return lines
+  let mammothLib: any = null;
   try {
-    const result = await mammoth.convertToHtml(
+    const mammothMod = await import('mammoth/mammoth.browser.js');
+    mammothLib = (mammothMod as any).default || mammothMod;
+    const result = await mammothLib.convertToHtml(
       { arrayBuffer },
       {
         styleMap: ['u => u', 'strike => s'],
-        convertImage: (mammoth.images as any).inline((element: any) => {
+        convertImage: (mammothLib.images as any).inline((element: any) => {
           return element.read('base64').then((imageBuffer: string) => {
             return {
               src: `data:${element.contentType || 'image/png'};base64,${imageBuffer}`,
@@ -843,7 +840,11 @@ export async function extractTextFromDocx(file: File): Promise<string> {
       .filter(Boolean);
     return resolveAutoNumberedLists(lines).join('\n');
   } catch (err) {
-    const result = await mammoth.extractRawText({ arrayBuffer });
+    if (!mammothLib) {
+      const mammothMod = await import('mammoth/mammoth.browser.js');
+      mammothLib = (mammothMod as any).default || mammothMod;
+    }
+    const result = await mammothLib.extractRawText({ arrayBuffer });
     return result.value;
   }
 }
@@ -903,7 +904,11 @@ function resolveAutoNumberedLists(lines: string[]): string[] {
 export async function extractTextFromPdf(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   try {
-    const loadingTask = (pdfjsLib as any).getDocument({
+    const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
+    }
+    const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer),
       useWorkerFetch: false,
       isEvalSupported: false,

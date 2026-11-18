@@ -10,11 +10,11 @@ export const IOSInstallGuideModal: React.FC<{ isOpen: boolean; onClose: () => vo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 pt-safe pb-safe"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 pt-safe pb-safe"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-[#0b1532] border-2 border-amber-400/80 p-5 shadow-2xl text-slate-100 max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-sm rounded-2xl bg-[#0b1532] border-2 border-amber-400/80 p-5 shadow-2xl text-slate-100 max-h-[88vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#1e345e]">

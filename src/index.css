@@ -12,15 +12,20 @@
     -webkit-tap-highlight-color: transparent;
     font-size: 16px;
     font-family: var(--font-sans);
-    touch-action: pan-x pan-y pinch-zoom;
+    touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     min-height: 100vh;
     min-height: -webkit-fill-available;
-    min-height: 100dvh;
     background-color: #060d1f;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  @supports (height: 100dvh) {
+    html, body {
+      min-height: 100dvh;
+    }
   }
 
   * {
@@ -28,23 +33,29 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Eliminate 300ms tap delay and deliver instant 0ms active tactile feedback on iPhone X - iPhone 18 */
-  button, a, select, input, label, [role="button"] {
+  /* Eliminate 300ms tap delay on iPhone 8, X, XS Max through iPhone 18 */
+  button, a, label, [role="button"] {
     touch-action: manipulation;
     -webkit-user-select: none;
     user-select: none;
   }
 
+  /* Keep text selection enabled on inputs/textareas so iOS 13-16 Safari never blocks focus/typing */
+  input, textarea, select {
+    touch-action: manipulation;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+  }
+
   button:not(:disabled) {
     transition: transform 70ms cubic-bezier(0.16, 1, 0.3, 1), background-color 90ms ease, border-color 90ms ease, opacity 90ms ease;
-    will-change: transform;
   }
 
   button:active:not(:disabled) {
     transform: scale(0.965);
   }
 
-  /* Prevent iOS Safari auto-zoom when focusing inputs/selects on iPhone X through iPhone 18 */
+  /* Prevent iOS Safari auto-zoom when focusing inputs/selects on iPhone 8 through iPhone 18 */
   @media screen and (max-width: 1024px) {
     input, select, textarea {
       font-size: 16px !important;
@@ -138,7 +149,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Safe areas for all mobile phones (iPhone X-14 Notch, iPhone 14 Pro-18 Pro Max Dynamic Island & Home Indicator) */
+/* Safe areas for all mobile phones (iPhone 8, X-14 Notch, iPhone 14 Pro-18 Pro Max Dynamic Island & Home Indicator) */
 .pb-safe {
   padding-bottom: max(0.65rem, env(safe-area-inset-bottom, 0.65rem));
 }
